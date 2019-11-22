@@ -4,23 +4,24 @@
 #include <cuda_gl_interop.h>
 #include <assert.h>
 #include <sys/time.h>
-
 #define Tix 32
+#define MAX(x, y) (((x) > (y)) ? (x) : (y))
 
 __global__ void GaussJordan_gpu(float *Aaug, float *subpivot, int N, int iter) {
     __shared__ float smem_a[Tix*Tix];
     int c = iter + blockIdx.x * Tix*Tix;
-    int r = iter + blockIdx.y;
+    int r = iter + 1 + blockIdx.y;
     float crat;
     int ti = threadIdx.x;
     smem_a[ti] = Aaug[iter*2*N + c + ti];
     crat =  Aaug[r*2*N+iter];
+
     if (c + ti < 2*N){
         Aaug[r*2*N+c+iter+threadIdx.x] -= crat*smem_a[threadIdx.x];
     }
     if (blockIdx.x == 0){
         if (threadIdx.x == 0){
-            subpivot[r] = Aaug[r*2*N+c];
+            subpivot[r] = Aaug[r*2*N+iter];
         }
         if (blockIdx.y == 0){
             if (threadIdx.x == 0){
@@ -82,7 +83,7 @@ int main(int argc, char *argv[]){
     // Checks to see if a valid .mtx file was given
     int memSize = 2*N*N*sizeof(float);
     Aaug = (float *)malloc(memSize);	
-    subpivot = (float *)malloc(N);	
+    subpivot = (float *)malloc(N*sizeof(float));	
 
     f = fopen(argv[1], "rb");
     for (i=0; i<N; i++){
@@ -95,26 +96,34 @@ int main(int argc, char *argv[]){
                 Aaug[2*N*i+N+j] = 0;
             }
         }
-
+        subpivot[i] = Aaug[i*2*N];
     }
     fclose(f);
 
-    cudaMalloc((float**)&Aaug_cu, memSize);
-    cudaMalloc((float**)&subpivot_cu, N);
-    cudaMemcpy(Aaug, Aaug_cu, memSize, cudaMemcpyHostToDevice);
-    cudaMemcpy(subpivot, subpivot_cu, memSize, cudaMemcpyHostToDevice);
+    cudaMalloc((void**)&Aaug_cu, memSize);
+    cudaMalloc((void**)&subpivot_cu, N*sizeof(float));
+    
+    cudaMemcpy(Aaug_cu, Aaug, memSize, cudaMemcpyHostToDevice);
+    cudaMemcpy(subpivot_cu, subpivot, N*sizeof(float), cudaMemcpyHostToDevice);
 
 
     // Runs GPU Code
-    dim3 nblocks(2*N/(32*32), N);
-    dim3 nthreads(32*32, 1);
-
-    dim3 nblocks_1(2*N/(32*32), 1);
-    dim3 nthreads_1(32*32, 1);
-
+    int bn, rn;
+    dim3 nblocks, nthreads, nblocks_1, nthreads_1;
+    nthreads.x = Tix*Tix;
+    nthreads.y =  1;
+    nthreads_1.x = Tix*Tix;
+    nthreads_1.y = 1;
     for (iter=0;iter<N; iter++){
-        cudaMemcpy(subpivot_cu, subpivot, memSize, cudaMemcpyDeviceToHost);
-                                       
+        bn = MAX((2*N-iter)/(Tix*Tix),1);             // Defines number of subdivisions in the row
+        rn = (N-iter-1);                              // Defines how many rows to update
+        
+        nblocks.x = bn;
+        nblocks.y = rn;
+
+        nblocks_1.x = bn;
+        nblocks_1.y = 1;
+
         if (sqrt(subpivot[iter]*subpivot[iter])<.00000000000001){      // checks for invertability
             for (m=1; m+iter<N; m++){                // loops through lower rows for nonzero in pivot
                 if (sqrt(subpivot[iter+m]*subpivot[iter+m])>.000000000000001){   // checks if nonzero pivot
@@ -133,16 +142,24 @@ int main(int argc, char *argv[]){
         }
         scale_row_gpu<<<nblocks_1, nthreads_1>>>(Aaug_cu, subpivot_cu, N, iter);
         cudaDeviceSynchronize();
-        
-        GaussJordan_gpu<<<nblocks, nthreads>>>(Aaug_cu, subpivot_cu, N, iter);
-        cudaDeviceSynchronize();
+        if(iter<N-1){        // Won't perform reduction if iter = N (at the bottom) 
+            GaussJordan_gpu<<<nblocks, nthreads>>>(Aaug_cu, subpivot_cu, N, iter);
+            cudaDeviceSynchronize();
+            cudaMemcpy(subpivot, subpivot_cu, N*sizeof(float), cudaMemcpyDeviceToHost);
+        }
     }
 
-    for (iter=N-1;iter>=0; iter--){
+    for (iter=N-1;iter>0; iter--){
+        bn = MAX(N/(Tix*Tix),1);             // Defines number of subdivisions in the row
+        rn = iter;                              // Defines how many rows to update
+        
+        nblocks.x = bn;
+        nblocks.y = rn;
+
         Backsolve_gpu<<<nblocks, nthreads>>>(Aaug_cu, N, iter);
         cudaDeviceSynchronize();
     }
-    cudaMemcpy(Aaug_cu, Aaug, memSize, cudaMemcpyDeviceToHost);
+    cudaMemcpy(Aaug, Aaug_cu, memSize, cudaMemcpyDeviceToHost);
 
     // Writes output to file (for testing) blocking
     FILE *of2 = fopen(argv[2], "wb");
