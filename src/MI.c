@@ -1,4 +1,4 @@
-#include<stdio.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
 int main(int argc, char *argv[])
@@ -41,9 +41,9 @@ int main(int argc, char *argv[])
 
     for(i=0; i<n; i++)
     {
-        if (A[i][i]*A[i][i]<.00000000001){      // checks for invertability
+        if (sqrt(A[i][i]*A[i][i])<.00000000000001){      // checks for invertability
                 for (m=1; m+i<n; i++){             // loops through lower rows for nonzero in pivot
-                    if (A[i+m][i]>.00000000001){   // checks if nonzero pivot
+                    if (sqrt(A[i+m][i]*A[i+m][i])>.000000000000001){   // checks if nonzero pivot
                         for (p=i;p<n;p++){
                             A[i][p] += A[i+m][p];
                         }
