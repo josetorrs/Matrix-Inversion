@@ -41,23 +41,23 @@ int main(int argc, char *argv[])
 
     for(i=0; i<n; i++)
     {
-        while (A[i][i]*A[i][i]<.00000000001){
-                for (m=1; m+i<n; i++){
-                    if (A[i+m][i]>.00000000001){
+        while (A[i][i]*A[i][i]<.00000000001){      // checks for invertability
+                for (m=1; m+i<n; i++){             // loops through lower rows for nonzero in pivot
+                    if (A[i+m][i]>.00000000001){   // checks if nonzero pivot
                         for (p=i;p<n;p++){
                             A[i][p] += A[i+m][p];
                         }
-                        goto INNER;
+                        goto INNER;                // exits if pivot found
                     }
                     else if(m==n-1){
-                        printf("Error matrix not invertible \n");
+                        printf("Error matrix not invertible \n"); // if no pivot found, not inverable
                         exit(-1);
                     }
                 }
-                printf("Error matrix not invertible \n");
+                printf("Error matrix not invertible \n");         // if at the last pivot and zero, not invertable
                 exit(-1);
         }
-        INNER: for(j=i+1; j<n; j++){   
+        INNER: for(j=i+1; j<n; j++){        // eliminates lower values
             c=A[j][i]/A[i][i];
             for (k=i;k<2*n;k++){
                 A[j][k]-=c*A[i][k];
@@ -68,12 +68,12 @@ int main(int argc, char *argv[])
     for(i=n-1; i>=0; i--){
         c=A[i][i];
         for(j=i; j<2*n; j++){   
-            A[i][j] = A[i][j]/c;
+            A[i][j] = A[i][j]/c;    // scales to have 1 on diagonal
         }
         for(j=i-1; j>=0; j--){   
             c = A[j][i];
             for(k=i;k<2*n;k++){
-                A[j][k] -= c*A[i][k];
+                A[j][k] -= c*A[i][k]; //performs back substitution
             }
         }
     }
