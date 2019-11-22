@@ -41,7 +41,7 @@ int main(int argc, char *argv[])
 
     for(i=0; i<n; i++)
     {
-        while (A[i][i]*A[i][i]<.00000000001){      // checks for invertability
+        if (A[i][i]*A[i][i]<.00000000001){      // checks for invertability
                 for (m=1; m+i<n; i++){             // loops through lower rows for nonzero in pivot
                     if (A[i+m][i]>.00000000001){   // checks if nonzero pivot
                         for (p=i;p<n;p++){
