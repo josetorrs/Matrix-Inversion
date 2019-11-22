@@ -15,7 +15,6 @@ __global__ void GaussJordan_gpu(float *Aaug, float *subpivot, int N, int iter) {
     int ti = threadIdx.x;
     smem_a[ti] = Aaug[iter*2*N + c + ti];
     crat =  Aaug[r*2*N+iter];
-
     if (c + ti < 2*N){
         Aaug[r*2*N+c+iter+threadIdx.x] -= crat*smem_a[threadIdx.x];
     }
@@ -100,8 +99,8 @@ int main(int argc, char *argv[]){
     }
     fclose(f);
 
-    cudaMalloc((void**)&Aaug_cu, memSize);
-    cudaMalloc((void**)&subpivot_cu, N);
+    cudaMalloc((float**)&Aaug_cu, memSize);
+    cudaMalloc((float**)&subpivot_cu, N);
     cudaMemcpy(Aaug, Aaug_cu, memSize, cudaMemcpyHostToDevice);
     cudaMemcpy(subpivot, subpivot_cu, memSize, cudaMemcpyHostToDevice);
 
