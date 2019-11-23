@@ -50,9 +50,9 @@ __global__ void Backsolve_gpu(float *Aaug, int N, int iter) {
     int r = blockIdx.y;
     float scale;
     int ti = threadIdx.x; 
-    scale =  Aaug[r*2*N+iter];
+    scale = Aaug[r*2*N+iter];
     if (c + ti < 2*N){
-        Aaug[r*2*N+c+iter+ti] -= scale*Aaug[iter*2*N+c+ti];
+        Aaug[r*2*N+c+ti] -= scale*Aaug[iter*2*N+c+ti];
     }
 }
 
