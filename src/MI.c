@@ -39,6 +39,10 @@ int main(int argc, char *argv[])
         }
     }
 
+    struct timeval t0;
+    struct timeval t1;
+    float elapsed;
+    gettimeofday(&t0, 0);
     for(i=0; i<n; i++)
     {
         if (sqrt(A[i][i]*A[i][i])<.00000000000001){      // checks for invertability
@@ -77,6 +81,11 @@ int main(int argc, char *argv[])
             }
         }
     }
+    gettimeofday(&t1, 0);
+    elapsed = (t1.tv_sec - t0.tv_sec) + (t1.tv_usec-t0.tv_usec)/1000000.0;
+    printf("The time occupied by the loop  was %2.6f in seconds\n", elapsed);
+    printf("\n");
+
     // Writes output to file (for testing) blocking
     FILE *of2 = fopen(argv[2], "wb");
     for (i=0; i<n; i++){

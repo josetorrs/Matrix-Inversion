@@ -103,6 +103,12 @@ int main(int argc, char *argv[]){
     nthreads.y =  1;
     nthreads_1.x = Tix*Tix;
     nthreads_1.y = 1;
+    cudaEvent_t start, stop;
+    cudaEventCreate(&start);
+    cudaEventCreate(&stop);
+
+    cudaEventRecord(start);
+
     for (iter=0;iter<N; iter++){
         bn = MAX((2*N-iter)/(Tix*Tix),1);             // Defines number of subdivisions in the row
         rn = (N-iter-1);                              // Defines how many rows to update
@@ -148,6 +154,11 @@ int main(int argc, char *argv[]){
         Backsolve_gpu<<<nblocks, nthreads>>>(Aaug_cu, N, iter);
         cudaDeviceSynchronize();
     }
+    cudaEventRecord(stop);
+    cudaEventSynchronize(stop);
+    float milliseconds = 0;
+    cudaEventElapsedTime(&milliseconds, start, stop);
+    printf ("gpu time: %f ms\n", milliseconds);
     cudaMemcpy(Aaug, Aaug_cu, memSize, cudaMemcpyDeviceToHost);
 
     // Writes output to file 
