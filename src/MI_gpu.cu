@@ -8,25 +8,18 @@
 #define MAX(x, y) (((x) > (y)) ? (x) : (y))
 
 __global__ void GaussJordan_gpu(float *Aaug, float *subpivot, int N, int iter) {
-    __shared__ float smem_a[Tix*Tix];
     int c = iter + blockIdx.x * Tix*Tix;
     int r = iter + 1 + blockIdx.y;
-    float crat;
+    float scale;
     int ti = threadIdx.x;
-    smem_a[ti] = Aaug[iter*2*N + c + ti];
-    crat =  Aaug[r*2*N+iter];
+    scale =  Aaug[r*2*N+iter];
 
     if (c + ti < 2*N){
-        Aaug[r*2*N+c+iter+threadIdx.x] -= crat*smem_a[threadIdx.x];
+        Aaug[r*2*N+c+ti] -= scale*Aaug[iter*2*N+c+ti];
     }
     if (blockIdx.x == 0){
-        if (threadIdx.x == 0){
-            subpivot[r] = Aaug[r*2*N+iter];
-        }
-        if (blockIdx.y == 0){
-            if (threadIdx.x == 0){
-                subpivot[iter] = Aaug[iter+iter*2*N];
-            }
+        if (ti == 0){
+            subpivot[r] = Aaug[r*2*N+iter+1];
         }
     }
 }
@@ -35,10 +28,10 @@ __global__ void update_row_gpu(float *Aaug, float *subpivot, int N, int iter, in
     int c = iter + blockIdx.x * Tix*Tix;
     int ti = threadIdx.x;
     if (c + ti < 2*N){
-        Aaug[iter*2*N+c+threadIdx.x] += Aaug[use*2*N+c+threadIdx.x];
+        Aaug[iter*2*N+c+ti] += Aaug[use*2*N+c+ti];
     }
     if (blockIdx.x == 0){
-        if (threadIdx.x == 0){
+        if (ti == 0){
             subpivot[iter] = Aaug[iter+iter*2*N];
         }
     }
@@ -48,24 +41,20 @@ __global__ void scale_row_gpu(float *Aaug, float *subpivot, int N, int iter) {
     int c = iter + blockIdx.x * Tix*Tix;
     int ti = threadIdx.x;
     if (c + ti < 2*N){
-        Aaug[iter*2*N+threadIdx.x] += Aaug[iter*2*N+threadIdx.x]/subpivot[iter];
+        Aaug[iter*2*N+c+ti] = Aaug[iter*2*N+c+ti]/subpivot[iter];
     }
 }
 
 __global__ void Backsolve_gpu(float *Aaug, int N, int iter) {
-    __shared__ float smem_a[Tix*Tix];
     int c = N + blockIdx.x * Tix*Tix;
     int r = blockIdx.y;
-    float crat;
-    int ti = threadIdx.x;
-    smem_a[ti] = Aaug[iter*2*N + c + ti];
-    crat =  Aaug[r*2*N+iter];
+    float scale;
+    int ti = threadIdx.x; 
+    scale =  Aaug[r*2*N+iter];
     if (c + ti < 2*N){
-        Aaug[r*2*N+c+iter+threadIdx.x] -= crat*smem_a[threadIdx.x];
+        Aaug[r*2*N+c+iter+ti] -= scale*Aaug[iter*2*N+c+ti];
     }
 }
-
-
 
 int main(int argc, char *argv[]){
     float *Aaug, *Aaug_cu, *subpivot, *subpivot_cu;
@@ -161,10 +150,10 @@ int main(int argc, char *argv[]){
     }
     cudaMemcpy(Aaug, Aaug_cu, memSize, cudaMemcpyDeviceToHost);
 
-    // Writes output to file (for testing) blocking
+    // Writes output to file 
     FILE *of2 = fopen(argv[2], "wb");
     for (i=0; i<N; i++){
-        for(j=N; j<2*N; j++){
+        for(j=0; j<N; j++){
             fprintf(of2, "%f ", Aaug[N+2*N*i+j]);
         }
         fprintf(of2, "\n");
