@@ -1,28 +1,10 @@
-#include <cstdlib>
+#include <fstream>
 #include <stdio.h>
-#include <cmath>
 #include <sys/time.h>
-#include <time.h>
 
-const int N = 5000; // N x N matrix
-const int T = 16; // T threads
-
-void displayMatrix(double matrix[][N])
+bool invertMatrix(int N, int T, double matrix[])
 {
-    for (int i = 0; i < N; i++)
-    {
-        for (int j = 0; j < N; j++)
-        {
-            printf("%.2f ", matrix[i][j]);
-        }
-        printf("\n");
-    }
-    printf("\n");
-}
-
-bool invertMatrix(double matrix[][N])
-{
-    double inverse[N][N];
+    double inverse[N*N];
 
     /* fill inverse with identity */
 
@@ -31,7 +13,7 @@ bool invertMatrix(double matrix[][N])
     {
         for (int j = 0; j < N; j++)
         {
-            inverse[i][j] = (i == j) ? 1 : 0;
+            inverse[i*N+j] = (i == j) ? 1 : 0;
         }
     }
 
@@ -43,7 +25,7 @@ bool invertMatrix(double matrix[][N])
 
         int piv = m;
 
-        while ((piv < N) && (matrix[piv][m] == 0))
+        while ((piv < N) && (matrix[piv*N+m] == 0))
         {
             piv++;
         }
@@ -60,13 +42,13 @@ bool invertMatrix(double matrix[][N])
             #pragma omp parallel for num_threads(T)
             for (int j = 0; j < N; j++)
             {
-                double temp = matrix[piv][j];
-                matrix[piv][j] = matrix[m][j];
-                matrix[m][j] = temp;
+                double temp = matrix[piv*N+j];
+                matrix[piv*N+j] = matrix[m*N+j];
+                matrix[m*N+j] = temp;
 
-                temp = inverse[piv][j];
-                inverse[piv][j] = inverse[m][j];
-                inverse[m][j] = temp;
+                temp = inverse[piv*N+j];
+                inverse[piv*N+j] = inverse[m*N+j];
+                inverse[m*N+j] = temp;
             }
         }
 
@@ -77,66 +59,95 @@ bool invertMatrix(double matrix[][N])
         {
             if (i != m)
             {
-                double temp = matrix[i][m] / matrix[m][m];
+                double temp = matrix[i*N+m] / matrix[m*N+m];
                 for (int j = 0; j < N; j++)
                 {
-                    matrix[i][j] -= matrix[m][j] * temp;
-                    inverse[i][j] -= inverse[m][j] * temp;
+                    matrix[i*N+j] -= matrix[m*N+j] * temp;
+                    inverse[i*N+j] -= inverse[m*N+j] * temp;
                 }
             }
         }
     }
 
     /* divide row by pivot to form identity */
+    /* transfer inverse to matrix */
 
     #pragma omp parallel for num_threads(T)
     for (int i = 0; i < N; i++)
     {
-        double temp = matrix[i][i];
+        double temp = matrix[i*N+i];
         for (int j = 0; j < N; j++)
         {
-            matrix[i][j] = inverse[i][j] / temp;
+            matrix[i*N+j] = inverse[i*N+j] / temp;
         }
     }
 
     return true;
 }
 
-int main(const int argc, char const *argv[])
+int main(int argc, char *argv[])
 {
-    double matrix[N][N];
-
-    srand(time(NULL));
-
-    for (int i = 0; i < N; i++)
+    if (argc != 3)
     {
-        for (int j = 0; j < N; j++)
-        {
-            matrix[i][j] = rand() % N - N / 2;
-        }
+        printf("need input and output file\n");
+        return -1;
     }
 
-    //displayMatrix(matrix);
+    std::ifstream input(argv[1]);
+
+    if (!input.good())
+    {
+        printf("input file does not exist\n");
+        return -1;
+    }
+
+    int N;
+	input >> N;
+    int T = 16;
+    double matrix[N*N];
+
+	for (int i = 0; i < N; i++)
+	{
+        for (int j = 0; j < N; j++)
+        {
+            double temp;
+            input >> temp;
+            matrix[i*N+j] = temp;
+        }
+	}
+
+    input.close();
 
     struct timeval start;
     struct timeval end;
 	gettimeofday(&start, NULL);
 
-    bool invertible = invertMatrix(matrix);
+    bool invertible = invertMatrix(N, T, matrix);
 
     gettimeofday(&end, NULL);
     double time = (end.tv_sec - start.tv_sec) + (end.tv_usec - start.tv_usec) / 1e6;
 
-    if (invertible)
+    if (!invertible)
     {
-        //displayMatrix(matrix);
+        printf("matrix cannot be inverted\n");
+        return -1;
     }
-    else
+    
+    printf("%.2f seconds\n", time);
+
+    std::ofstream output(argv[2]);
+    output << N << std::endl;
+
+    for (int i = 0; i < N; i++)
     {
-        printf("cannot be inverted\n\n");
+        for (int j = 0; j < N; j++)
+        {
+            output << matrix[i*N+j] << " ";
+        }
+        output << std::endl;
     }
 
-    printf("%.2f seconds\n\n", time);
+    output.close();
 
     return 0;
 }
