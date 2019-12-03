@@ -1,10 +1,11 @@
 #include <fstream>
 #include <stdio.h>
 #include <sys/time.h>
+#include <math.h>
 
-bool invertMatrix(int N, double matrix[])
+bool invertMatrix(int N, float matrix[])
 {
-    double inverse[N*N];
+    float inverse[N * N];
 
     /* fill inverse with identity */
 
@@ -12,7 +13,7 @@ bool invertMatrix(int N, double matrix[])
     {
         for (int j = 0; j < N; j++)
         {
-            inverse[i*N+j] = (i == j) ? 1 : 0;
+            inverse[i * N + j] = (i == j) ? 1 : 0;
         }
     }
 
@@ -22,45 +23,45 @@ bool invertMatrix(int N, double matrix[])
     {
         /* find nonzero pivot in column m */
 
-        int piv = m;
+        int p = m;
 
-        while ((piv < N) && (matrix[piv*N+m] == 0))
+        while ((p < N) && (fabs(matrix[p * N + m]) < 2e-8))
         {
-            piv++;
+            p++;
         }
 
-        if (piv >= N)
+        if (p >= N)
         {
             return false; // no nonzero pivot
         }
 
         /* swap pivot into place by exchanging rows */
 
-        if (piv != m)
+        if (p != m)
         {
             for (int j = 0; j < N; j++)
             {
-                double temp = matrix[piv*N+j];
-                matrix[piv*N+j] = matrix[m*N+j];
-                matrix[m*N+j] = temp;
+                float temp = matrix[p * N + j];
+                matrix[p * N + j] = matrix[m * N + j];
+                matrix[m * N + j] = temp;
 
-                temp = inverse[piv*N+j];
-                inverse[piv*N+j] = inverse[m*N+j];
-                inverse[m*N+j] = temp;
+                temp = inverse[p * N + j];
+                inverse[p * N + j] = inverse[m * N + j];
+                inverse[m * N + j] = temp;
             }
         }
 
         /* row reduce column m */
-        
+
         for (int i = 0; i < N; i++)
         {
             if (i != m)
             {
-                double temp = matrix[i*N+m] / matrix[m*N+m];
+                float temp = matrix[i * N + m] / matrix[m * N + m];
                 for (int j = 0; j < N; j++)
                 {
-                    matrix[i*N+j] -= matrix[m*N+j] * temp;
-                    inverse[i*N+j] -= inverse[m*N+j] * temp;
+                    matrix[i * N + j] -= matrix[m * N + j] * temp;
+                    inverse[i * N + j] -= inverse[m * N + j] * temp;
                 }
             }
         }
@@ -71,10 +72,10 @@ bool invertMatrix(int N, double matrix[])
 
     for (int i = 0; i < N; i++)
     {
-        double temp = matrix[i*N+i];
+        float temp = matrix[i * N + i];
         for (int j = 0; j < N; j++)
         {
-            matrix[i*N+j] = inverse[i*N+j] / temp;
+            matrix[i * N + j] = inverse[i * N + j] / temp;
         }
     }
 
@@ -98,38 +99,37 @@ int main(int argc, char *argv[])
     }
 
     int N;
-	input >> N;
-    int T = 16;
-    double matrix[N*N];
+    input >> N;
+    float matrix[N * N];
 
-	for (int i = 0; i < N; i++)
-	{
+    for (int i = 0; i < N; i++)
+    {
         for (int j = 0; j < N; j++)
         {
-            double temp;
+            float temp;
             input >> temp;
-            matrix[i*N+j] = temp;
+            matrix[i * N + j] = temp;
         }
-	}
+    }
 
     input.close();
 
     struct timeval start;
     struct timeval end;
-	gettimeofday(&start, NULL);
+    gettimeofday(&start, NULL);
 
     bool invertible = invertMatrix(N, matrix);
 
     gettimeofday(&end, NULL);
-    double time = (end.tv_sec - start.tv_sec) + (end.tv_usec - start.tv_usec) / 1e6;
+    float time = (end.tv_sec - start.tv_sec) + (end.tv_usec - start.tv_usec) / 1e6;
 
     if (!invertible)
     {
         printf("matrix cannot be inverted\n");
         return -1;
     }
-    
-    printf("%.2f seconds\n", time);
+
+    printf("%f seconds\n", time);
 
     std::ofstream output(argv[2]);
     output << N << std::endl;
@@ -138,7 +138,7 @@ int main(int argc, char *argv[])
     {
         for (int j = 0; j < N; j++)
         {
-            output << matrix[i*N+j] << " ";
+            output << matrix[i * N + j] << " ";
         }
         output << std::endl;
     }
