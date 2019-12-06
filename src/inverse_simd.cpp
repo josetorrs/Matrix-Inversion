@@ -10,27 +10,31 @@ bool invertMatrix(int N, float matrix[])
 
     /* fill inverse with identity */
 
-    for (int m = 0; m + 15 < N * N; m += 16)
+    int index = (N * N) % 16;
+
+    for (int m = 0; m < index; m++)
+    {
+        inverse[m] = 0;
+    }
+
+    for (int m = index; m < N * N; m += 16)
     {
         __m512 _zero = _mm512_set1_ps(0);
         _mm512_store_ps(inverse + m, _zero);
     }
 
-    for (int m = ((N * N) / 16) * 16; m < N * N; m++)
+    index = N % 16;
+
+    for (int m = 0; m < index; m++)
     {
-        inverse[m] = 0;
+        inverse[m * N + m] = 1;
     }
 
-    for (int m = 0; m + 15 < N; m += 16)
+    for (int m = index; m < N; m += 16)
     {
         __m512 _one = _mm512_set1_ps(1);
         __m512i _index = _mm512_set_epi32(0 * (N + 1), 1 * (N + 1), 2 * (N + 1), 3 * (N + 1), 4 * (N + 1), 5 * (N + 1), 6 * (N + 1), 7 * (N + 1), 8 * (N + 1), 9 * (N + 1), 10 * (N + 1), 11 * (N + 1), 12 * (N + 1), 13 * (N + 1), 14 * (N + 1), 15 * (N + 1));
         _mm512_i32scatter_ps(inverse + (m * N + m), _index, _one, 4);
-    }
-
-    for (int m = (N / 16) * 16; m < N; m++)
-    {
-        inverse[m * N + m] = 1;
     }
 
     /* row reduce at pivot m */
@@ -41,7 +45,7 @@ bool invertMatrix(int N, float matrix[])
 
         int p = m;
 
-        while ((p < N) && (fabs(matrix[p * N + m]) < 2e-8))
+        while ((p < N) && (fabs(matrix[p * N + m]) < 1e-5))
         {
             p++;
         }
@@ -55,7 +59,18 @@ bool invertMatrix(int N, float matrix[])
 
         if (p != m)
         {
-            for (int j = 0; j + 15 < N; j += 16)
+            for (int j = 0; j < index; j++)
+            {
+                float temp = matrix[p * N + j];
+                matrix[p * N + j] = matrix[m * N + j];
+                matrix[m * N + j] = temp;
+
+                temp = inverse[p * N + j];
+                inverse[p * N + j] = inverse[m * N + j];
+                inverse[m * N + j] = temp;
+            }
+
+            for (int j = index; j < N; j += 16)
             {
                 __m512 _temp1 = _mm512_load_ps(matrix + (p * N + j));
                 __m512 _temp2 = _mm512_load_ps(matrix + (m * N + j));
@@ -67,17 +82,6 @@ bool invertMatrix(int N, float matrix[])
                 _mm512_store_ps(inverse + (p * N + j), _temp2);
                 _mm512_store_ps(inverse + (m * N + j), _temp1);
             }
-
-            for (int j = ((N) / 16) * 16; j < N; j++)
-            {
-                float temp = matrix[p * N + j];
-                matrix[p * N + j] = matrix[m * N + j];
-                matrix[m * N + j] = temp;
-
-                temp = inverse[p * N + j];
-                inverse[p * N + j] = inverse[m * N + j];
-                inverse[m * N + j] = temp;
-            }
         }
 
         /* row reduce column m */
@@ -86,8 +90,15 @@ bool invertMatrix(int N, float matrix[])
         {
             if (i != m)
             {
-                __m512 _temp = _mm512_set1_ps(matrix[i * N + m] / matrix[m * N + m]);
-                for (int j = 0; j + 15 < N; j += 16)
+                float temp = matrix[i * N + m] / matrix[m * N + m];
+                for (int j = 0; j < index; j++)
+                {
+                    matrix[i * N + j] -= matrix[m * N + j] * temp;
+                    inverse[i * N + j] -= inverse[m * N + j] * temp;
+                }
+
+                __m512 _temp = _mm512_set1_ps(temp);
+                for (int j = index; j < N; j += 16)
                 {
                     __m512 _minuend = _mm512_load_ps(matrix + (i * N + j));
                     __m512 _subtrahend = _mm512_load_ps(matrix + (m * N + j));
@@ -101,13 +112,6 @@ bool invertMatrix(int N, float matrix[])
                     _minuend = _mm512_sub_ps(_minuend, _subtrahend);
                     _mm512_store_ps(inverse + (i * N + j), _minuend);
                 }
-
-                float temp = matrix[i * N + m] / matrix[m * N + m];
-                for (int j = ((N) / 16) * 16; j < N; j++)
-                {
-                    matrix[i * N + j] -= matrix[m * N + j] * temp;
-                    inverse[i * N + j] -= inverse[m * N + j] * temp;
-                }
             }
         }
     }
@@ -117,18 +121,18 @@ bool invertMatrix(int N, float matrix[])
 
     for (int i = 0; i < N; i++)
     {
-        __m512 _temp = _mm512_set1_ps(matrix[i * N + i]);
-        for (int j = 0; j + 15 < N; j += 16)
+        float temp = matrix[i * N + i];
+        for (int j = 0; j < index; j++)
+        {
+            matrix[i * N + j] = inverse[i * N + j] / temp;
+        }
+
+        __m512 _temp = _mm512_set1_ps(temp);
+        for (int j = index; j < N; j += 16)
         {
             __m512 _inverse = _mm512_load_ps(inverse + (i * N + j));
             _inverse = _mm512_div_ps(_inverse, _temp);
             _mm512_store_ps(matrix + (i * N + j), _inverse);
-        }
-
-        float temp = matrix[i * N + i];
-        for (int j = ((N) / 16) * 16; j < N; j++)
-        {
-            matrix[i * N + j] = inverse[i * N + j] / temp;
         }
     }
 

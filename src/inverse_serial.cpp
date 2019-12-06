@@ -25,7 +25,7 @@ bool invertMatrix(int N, float matrix[])
 
         int p = m;
 
-        while ((p < N) && (fabs(matrix[p * N + m]) < 2e-8))
+        while ((p < N) && (fabs(matrix[p * N + m]) < 1e-5))
         {
             p++;
         }

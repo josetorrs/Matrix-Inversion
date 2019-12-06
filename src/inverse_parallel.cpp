@@ -3,7 +3,9 @@
 #include <sys/time.h>
 #include <math.h>
 
-bool invertMatrix(int N, int T, float matrix[])
+const int T = 16;
+
+bool invertMatrix(int N, float matrix[])
 {
     float inverse[N * N];
 
@@ -26,7 +28,7 @@ bool invertMatrix(int N, int T, float matrix[])
 
         int p = m;
 
-        while ((p < N) && (fabs(matrix[p * N + m]) < 2e-8))
+        while ((p < N) && (fabs(matrix[p * N + m]) < 1e-5))
         {
             p++;
         }
@@ -104,7 +106,6 @@ int main(int argc, char *argv[])
 
     int N;
     input >> N;
-    int T = 16;
     float matrix[N * N];
 
     for (int i = 0; i < N; i++)
@@ -123,7 +124,7 @@ int main(int argc, char *argv[])
     struct timeval end;
     gettimeofday(&start, NULL);
 
-    bool invertible = invertMatrix(N, T, matrix);
+    bool invertible = invertMatrix(N, matrix);
 
     gettimeofday(&end, NULL);
     float time = (end.tv_sec - start.tv_sec) + (end.tv_usec - start.tv_usec) / 1e6;
