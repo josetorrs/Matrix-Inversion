@@ -9,23 +9,25 @@
 
 __global__ void GaussJordan_gpu(float *Aaug, float *subpivot, int N, int iter) {
     int c = iter + blockIdx.x * Tix*Tix;
-    int r = iter + 1 + blockIdx.y;
+    int r = blockIdx.y;
     float scale;
     int ti = threadIdx.x;
+    scale =  Aaug[r*2*N+iter];
     __shared__ float col[Tix*Tix];
     __shared__ float colj[Tix*Tix];
-   
-    scale =  Aaug[r*2*N+iter];
 
-    if (c + ti < 2*N){
-        col[ti] = Aaug[iter*2*N+c+ti];
-        colj[ti] = Aaug[r*2*N+c+ti];
-        colj[ti] -= scale*col[ti];
-        Aaug[r*2*N+c+ti] = colj[ti];
-    }
-    if (blockIdx.x == 0){
-        if (ti == 0){
-            subpivot[r] = Aaug[r*2*N+iter+1];
+
+    if (r != iter){
+        if (c + ti < 2*N){
+           col[ti] = Aaug[iter*2*N+c+ti];  
+           colj[ti] = Aaug[r*2*N+c+ti]; 
+           colj[ti] -= scale*col[ti];
+           Aaug[r*2*N+c+ti] = colj[ti]; 
+        }
+        if (blockIdx.x == 0){
+            if (ti == 0){
+                subpivot[r] = Aaug[r*2*N+iter+1];
+            }
         }
     }
 }
@@ -48,17 +50,6 @@ __global__ void scale_row_gpu(float *Aaug, float *subpivot, int N, int iter) {
     int ti = threadIdx.x;
     if (c + ti < 2*N){
         Aaug[iter*2*N+c+ti] = Aaug[iter*2*N+c+ti]/subpivot[iter];
-    }
-}
-
-__global__ void Backsolve_gpu(float *Aaug, int N, int iter) {
-    int c = N + blockIdx.x * Tix*Tix;
-    int r = blockIdx.y;
-    float scale;
-    int ti = threadIdx.x; 
-    scale = Aaug[r*2*N+iter];
-    if (c + ti < 2*N){
-        Aaug[r*2*N+c+ti] -= scale*Aaug[iter*2*N+c+ti];
     }
 }
 
@@ -117,7 +108,7 @@ int main(int argc, char *argv[]){
 
     for (iter=0;iter<N; iter++){
         bn = MAX((2*N-iter)/(Tix*Tix),1);             // Defines number of subdivisions in the row
-        rn = (N-iter-1);                              // Defines how many rows to update
+        rn = N;                                       // Defines how many rows to update
         
         nblocks.x = bn;
         nblocks.y = rn;
@@ -143,23 +134,13 @@ int main(int argc, char *argv[]){
         }
         scale_row_gpu<<<nblocks_1, nthreads_1>>>(Aaug_cu, subpivot_cu, N, iter);
         cudaDeviceSynchronize();
-        if(iter<N-1){        // Won't perform reduction if iter = N (at the bottom) 
+        if(iter<N){        // Won't perform reduction if iter = N (at the bottom) 
             GaussJordan_gpu<<<nblocks, nthreads>>>(Aaug_cu, subpivot_cu, N, iter);
             cudaDeviceSynchronize();
             cudaMemcpy(subpivot, subpivot_cu, N*sizeof(float), cudaMemcpyDeviceToHost);
         }
     }
 
-    for (iter=N-1;iter>0; iter--){
-        bn = MAX(N/(Tix*Tix),1);             // Defines number of subdivisions in the row
-        rn = iter;                              // Defines how many rows to update
-        
-        nblocks.x = bn;
-        nblocks.y = rn;
-
-        Backsolve_gpu<<<nblocks, nthreads>>>(Aaug_cu, N, iter);
-        cudaDeviceSynchronize();
-    }
     cudaEventRecord(stop);
     cudaEventSynchronize(stop);
     float milliseconds = 0;
