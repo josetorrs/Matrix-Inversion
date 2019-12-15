@@ -1,9 +1,9 @@
 #include <fstream>
-#include <stdio.h>
+#include <cstdlib>
 #include <sys/time.h>
 #include <math.h>
 
-const int T = 16;
+const int T = 32;
 
 bool invertMatrix(int N, float matrix[])
 {
@@ -28,7 +28,7 @@ bool invertMatrix(int N, float matrix[])
 
         int p = m;
 
-        while ((p < N) && (fabs(matrix[p * N + m]) < 1e-5))
+        while ((p < N) && (fabs(matrix[p * N + m]) < 1e-8))
         {
             p++;
         }
@@ -60,7 +60,7 @@ bool invertMatrix(int N, float matrix[])
         #pragma omp parallel for num_threads(T)
         for (int i = 0; i < N; i++)
         {
-            if (i != m)
+            if (i != m && fabs(matrix[i * N + m]) > 1e-8)
             {
                 float temp = matrix[i * N + m] / matrix[m * N + m];
                 for (int j = 0; j < N; j++)
@@ -92,7 +92,7 @@ int main(int argc, char *argv[])
 {
     if (argc != 3)
     {
-        printf("need input and output file\n");
+        printf("need input and N\n");
         return -1;
     }
 
@@ -104,8 +104,14 @@ int main(int argc, char *argv[])
         return -1;
     }
 
-    int N;
-    input >> N;
+    int N = atoi(argv[2]);
+
+    if (N < 0)
+    {
+        printf("need positive N\n");
+        return -1;
+    }
+
     float matrix[N * N];
 
     for (int i = 0; i < N; i++)
@@ -135,21 +141,7 @@ int main(int argc, char *argv[])
         return -1;
     }
 
-    printf("%f seconds\n", time);
-
-    std::ofstream output(argv[2]);
-    output << N << std::endl;
-
-    for (int i = 0; i < N; i++)
-    {
-        for (int j = 0; j < N; j++)
-        {
-            output << matrix[i * N + j] << " ";
-        }
-        output << std::endl;
-    }
-
-    output.close();
+    printf("%f\n", time);
 
     return 0;
 }
