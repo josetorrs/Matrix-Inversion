@@ -3,7 +3,7 @@
 #include <sys/time.h>
 #include <math.h>
 
-const int T = 32;
+const int T = 16;
 
 bool invertMatrix(int N, float matrix[])
 {

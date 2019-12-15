@@ -159,7 +159,7 @@ int main(int argc, char *argv[]){
     cudaEventSynchronize(stop);
     float milliseconds = 0;
     cudaEventElapsedTime(&milliseconds, start, stop);
-    printf ("gpu time: %f ms\n", milliseconds);
+    printf ("%f\n", milliseconds / 1e6);
     cudaMemcpy(Aaug, Aaug_cu, memSize, cudaMemcpyDeviceToHost);
     return 0;
 }
