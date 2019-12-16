@@ -26,7 +26,11 @@ int main(int argc, char const *argv[])
     {
         for (int j = 0; j < N; j++)
         {
-            matrix[i * N + j] = rand() % 10;
+            matrix[i * N + j] = rand() % 20 + 1; // dense
+            matrix[i * N + j] += (i == j) ? 1 : 0;
+
+            //matrix[i * N + j] = rand() % 2; // sparse
+            //matrix[i * N + j] += (i == j) ? 1 : 0;
         }
     }
 
